@@ -14,6 +14,7 @@
       --gap: 16px;
       --tileHeight: 520px;
       --listHeight: 420px;
+      --fbMaxH: 680px;
     }
 
     body{
@@ -31,7 +32,6 @@
       margin-bottom: var(--gap);
       background:#fff;
     }
-
     .breaking-head{
       display:flex;
       align-items:baseline;
@@ -39,7 +39,6 @@
       gap: 12px;
       margin-bottom: 8px;
     }
-
     .breaking-title{
       margin:0;
       font-size:18px;
@@ -49,7 +48,6 @@
       gap:10px;
       align-items:center;
     }
-
     .badge{
       display:inline-block;
       font-size:12px;
@@ -58,14 +56,12 @@
       border-radius:999px;
       border:1px solid #ddd;
     }
-
     .breaking-updated{
       font-size:12px;
       opacity:0.75;
       font-weight:600;
       white-space:nowrap;
     }
-
     .ticker{
       position:relative;
       overflow:hidden;
@@ -76,7 +72,6 @@
       display:flex;
       align-items:center;
     }
-
     .ticker-track{
       display:inline-flex;
       gap: 28px;
@@ -85,39 +80,27 @@
       animation: marquee 150s linear infinite;
       padding-left: 100%;
     }
-
-    .ticker:hover .ticker-track{
-      animation-play-state: paused; /* pause on hover */
-    }
-
+    .ticker:hover .ticker-track{ animation-play-state: paused; }
     @keyframes marquee{
       from { transform: translateX(0); }
       to   { transform: translateX(-100%); }
     }
-
     .ticker a{
       text-decoration:none;
       color: inherit;
       font-weight:600;
       opacity:0.95;
     }
+    .ticker a:hover{ text-decoration: underline; }
+    .dot{ opacity:0.35; font-weight:600; }
 
-    .ticker a:hover{
-      text-decoration: underline;
-    }
-
-    .dot{
-      opacity:0.35;
-      font-weight:600;
-    }
-
-    /* ===== Grid ===== */
+    /* ===== Grid (3x2 achieved by 2 columns with 6 tiles) ===== */
     .grid{
       display:grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: var(--gap);
+      margin-bottom: var(--gap);
     }
-
     @media (max-width: 900px){
       .grid{ grid-template-columns: 1fr; }
       :root{ --tileHeight: 560px; --listHeight: 460px; }
@@ -134,14 +117,12 @@
       display:flex;
       flex-direction:column;
     }
-
     .title{
       font-size:22px;
       margin:0 0 6px 0;
       font-weight:600;
       letter-spacing:0.4px;
     }
-
     .subtitle{
       margin:0 0 10px 0;
       opacity:0.85;
@@ -149,20 +130,17 @@
       font-size:14px;
       line-height:1.3;
     }
-
     .scroll{
       overflow-y:auto;
       padding-right:10px;
       max-height: var(--listHeight);
     }
-
     .item{
       display:flex;
       gap:12px;
       margin:0 0 12px 0;
       align-items:flex-start;
     }
-
     .thumb{
       width:110px;
       height:62px;
@@ -171,18 +149,56 @@
       flex:0 0 auto;
       background:#f2f2f2;
     }
-
     .text{ flex:1; }
     .grid a{ color:inherit; text-decoration:none; }
     .grid a:hover{ text-decoration:underline; }
     .date{ opacity:0.7; font-size:12px; margin-top:4px; display:block; }
-
     .loading{ opacity:0.75; }
     .error{
       padding:10px;
       border:1px solid #ddd;
       border-radius:12px;
       background:#fff;
+    }
+
+    /* ===== Facebook section ===== */
+    .fb-wrap{
+      border:1px solid #e6e6e6;
+      border-radius:16px;
+      padding:14px;
+      background:#fff;
+    }
+    .fb-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    .fb-controls{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    button{
+      font: inherit;
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      background: #fafafa;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover{ background:#f4f4f4; }
+    .hint{ font-size:12px; opacity:.75; font-weight:600; }
+
+    .fb-scroll{
+      max-height: var(--fbMaxH);
+      overflow-y:auto;
+      padding-right:10px;
+      border-radius: 12px;
     }
   </style>
 </head>
@@ -208,6 +224,43 @@
   <!-- 3x2 dashboard -->
   <div class="grid" id="dashboard"></div>
 
+  <!-- Facebook feed -->
+  <section class="fb-wrap" aria-label="HamiltonJet Global Facebook feed">
+    <div class="fb-head">
+      <div>
+        <h2 class="title" style="margin:0;">HamiltonJet Global • Facebook</h2>
+        <div class="subtitle" style="margin:4px 0 0 0;">Latest posts</div>
+      </div>
+
+      <div class="fb-controls">
+        <button id="fbToggle">Pause auto-scroll</button>
+        <span class="hint">Hover the feed to pause • scroll manually anytime</span>
+      </div>
+    </div>
+
+    <!-- Facebook SDK (once per page) -->
+    <div id="fb-root"></div>
+    <script async defer crossorigin="anonymous"
+      src="https://connect.facebook.net/en_GB/sdk.js#xfbml=1&version=v19.0">
+    </script>
+
+    <div class="fb-scroll" id="fbScrollBox">
+      <div class="fb-page"
+        data-href="https://www.facebook.com/HamiltonJetGlobal"
+        data-tabs="timeline"
+        data-width="500"
+        data-height="1200"
+        data-small-header="false"
+        data-adapt-container-width="true"
+        data-hide-cover="false"
+        data-show-facepile="false">
+        <blockquote cite="https://www.facebook.com/HamiltonJetGlobal" class="fb-xfbml-parse-ignore">
+          <a href="https://www.facebook.com/HamiltonJetGlobal">HamiltonJet Global</a>
+        </blockquote>
+      </div>
+    </div>
+  </section>
+
   <script>
     /******************** CONFIG ********************/
     const maxItems = 12;
@@ -215,22 +268,21 @@
     // Timezone for all "Updated" stamps (null = viewer local)
     const forceTimeZone = "Pacific/Auckland";
 
-    // Breaking ticker feed (Top Stories works well for “what’s happening now”)
+    // Breaking ticker feed
     const breakingFeed = {
-      name: "BBC • Top Stories",
       url: "https://feeds.bbci.co.uk/news/rss.xml",
       maxHeadlines: 12,
-      refreshMs: 5 * 60 * 1000 // 5 minutes
+      refreshMs: 5 * 60 * 1000
     };
 
-    // Your 3x2 grid feeds (exactly as you specified)
+    // 3x2 feeds
     const feeds = [
-      { name: "RNZ • Morning Report (Podcast)", url: "https://www.rnz.co.nz/podcasts/morningreport.rss" },
-      { name: "RNZ • Midday Report (Podcast)",  url: "https://www.rnz.co.nz/podcasts/middayreport.rss" },
       { name: "BBC • Top Stories",              url: "https://feeds.bbci.co.uk/news/rss.xml" },
       { name: "BBC • Science & Environment",    url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml" },
       { name: "BBC • Technology",               url: "https://feeds.bbci.co.uk/news/technology/rss.xml" },
-      { name: "BBC • Business",                 url: "https://feeds.bbci.co.uk/news/business/rss.xml" }
+      { name: "BBC • Business",                 url: "https://feeds.bbci.co.uk/news/business/rss.xml" },
+      { name: "RNZ • Morning Report (Podcast)", url: "https://www.rnz.co.nz/podcasts/morningreport.rss" },
+      { name: "RNZ • Midday Report (Podcast)",  url: "https://www.rnz.co.nz/podcasts/middayreport.rss" }
     ];
 
     /******************** Helpers ********************/
@@ -264,7 +316,7 @@
     function getThumb(item){
       if (item.thumbnail) return item.thumbnail;
 
-      // RNZ podcast enclosure is usually audio, so only treat enclosure as an image if it says image/*
+      // Only treat enclosure as an image if it says image/*
       if (item.enclosure && item.enclosure.link && (item.enclosure.type || "").startsWith("image/")) {
         return item.enclosure.link;
       }
@@ -292,15 +344,12 @@
         breakingUpdated.textContent = "Updated: " + updatedStr + (forceTimeZone ? " (" + forceTimeZone + ")" : "");
 
         const items = data.items.slice(0, breakingFeed.maxHeadlines);
-
-        // Build one long line: Headline • Headline • Headline ...
         const line = items.map(it => {
           const title = (it.title || "").trim();
           const link = safeLink(it);
           return `<a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a>`;
         }).join(` <span class="dot">•</span> `);
 
-        // Duplicate the line so the marquee loops smoothly
         breakingTrack.innerHTML = `<span>${line}</span> <span class="dot">•</span> <span>${line}</span>`;
       } catch(err){
         console.error("Breaking ticker error:", err);
@@ -308,7 +357,6 @@
         breakingTrack.innerHTML = `<span class="loading">Couldn’t load breaking headlines.</span>`;
       }
     }
-
     loadBreaking();
     setInterval(loadBreaking, breakingFeed.refreshMs);
 
@@ -368,147 +416,60 @@
           `;
         });
     });
-  </script>
-</body>
-</html>
 
-<!doctype html>
-<html lang="en-gb">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>HamiltonJet • Facebook Feed</title>
+    /******************** Facebook slow auto-scroll ********************
+     * Note: We can ONLY scroll the outer container. We cannot autoplay videos
+     * or control scrolling inside Facebook’s iframe.
+     *******************************************************************/
+    const fbBox = document.getElementById("fbScrollBox");
+    const fbToggle = document.getElementById("fbToggle");
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+    let fbRunning = true;
 
-  <style>
-    :root { --w: 760px; --h: 680px; }
+    // Slower/faster: pixels per second
+    const fbSpeedPxPerSec = 0.35;
 
-    body { margin:0; padding:16px; font-family:"Fredoka", system-ui, sans-serif; background:#fff; }
+    // Start later because FB iframe loads slowly
+    const fbStartDelayMs = 8000;
 
-    .card{
-      max-width: var(--w);
-      border: 1px solid #e6e6e6;
-      border-radius: 16px;
-      padding: 14px;
-      background:#fff;
+    // Use a steady timer (more reliable than rAF in some embed contexts)
+    const tickMs = 50;
+
+    let fbTimer = null;
+
+    function fbStart(){
+      if (fbTimer) return;
+      fbTimer = setInterval(() => {
+        if (!fbRunning) return;
+
+        // Only scroll when there’s actually something to scroll
+        if (fbBox.scrollHeight <= fbBox.clientHeight + 2) return;
+
+        fbBox.scrollTop += fbSpeedPxPerSec * (tickMs / 1000);
+
+        const atBottom = fbBox.scrollTop + fbBox.clientHeight >= fbBox.scrollHeight - 2;
+        if (atBottom) fbBox.scrollTop = 0;
+      }, tickMs);
     }
 
-    .title{ font-size:22px; margin:0 0 6px 0; font-weight:600; letter-spacing:.4px; }
-    .subtitle{ margin:0 0 12px 0; opacity:.85; font-weight:600; font-size:14px; }
-
-    .controls{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      margin: 0 0 12px 0;
-      flex-wrap: wrap;
+    function fbStop(){
+      if (!fbTimer) return;
+      clearInterval(fbTimer);
+      fbTimer = null;
     }
 
-    button{
-      font: inherit;
-      padding: 8px 12px;
-      border-radius: 12px;
-      border: 1px solid #ddd;
-      background: #fafafa;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    button:hover{ background:#f4f4f4; }
+    // Pause on hover so you can read / click without fighting it
+    fbBox.addEventListener("mouseenter", () => fbRunning = false);
+    fbBox.addEventListener("mouseleave", () => fbRunning = true);
 
-    .hint{ font-size:12px; opacity:.75; font-weight:600; }
-
-    /* Scroll container (this is what we auto-scroll) */
-    .scroll{
-      max-height: var(--h);
-      overflow-y: auto;
-      padding-right: 10px;
-      border-radius: 12px;
-    }
-  </style>
-</head>
-
-<body>
-  <div class="card">
-    <h2 class="title">HamiltonJet Global • Facebook</h2>
-    <div class="subtitle">Latest posts</div>
-
-    <div class="controls">
-      <button id="toggle">Pause auto-scroll</button>
-      <span class="hint">Tip: hover the feed to pause • scroll manually anytime</span>
-    </div>
-
-    <!-- Facebook SDK (include once per page) -->
-    <div id="fb-root"></div>
-    <script async defer crossorigin="anonymous"
-      src="https://connect.facebook.net/en_GB/sdk.js#xfbml=1&version=v19.0">
-    </script>
-
-    <div class="scroll" id="autoScrollBox">
-      <!-- Facebook Page Plugin -->
-      <div class="fb-page"
-        data-href="https://www.facebook.com/HamiltonJetGlobal"
-        data-tabs="timeline"
-        data-width="500"
-        data-height="1200"
-        data-small-header="false"
-        data-adapt-container-width="true"
-        data-hide-cover="false"
-        data-show-facepile="false">
-        <blockquote cite="https://www.facebook.com/HamiltonJetGlobal" class="fb-xfbml-parse-ignore">
-          <a href="https://www.facebook.com/HamiltonJetGlobal">HamiltonJet Global</a>
-        </blockquote>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // ===== Slow auto-scroll settings =====
-    const box = document.getElementById("autoScrollBox");
-    const toggleBtn = document.getElementById("toggle");
-
-    // pixels per second (0.2–0.6 is "slow"; 0.35 is a nice default)
-    const speedPxPerSec = 0.35;
-
-    // wait a moment before starting (lets the embed render)
-    const startDelayMs = 2000;
-
-    let running = true;
-    let lastTs = null;
-
-    function step(ts){
-      if (lastTs === null) lastTs = ts;
-      const dt = (ts - lastTs) / 1000;
-      lastTs = ts;
-
-      if (running) {
-        box.scrollTop += speedPxPerSec * dt;
-
-        // Loop back to top when we reach the bottom
-        const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
-        if (atBottom) box.scrollTop = 0;
-      }
-
-      requestAnimationFrame(step);
-    }
-
-    // Pause on hover/focus so it doesn’t fight the user
-    box.addEventListener("mouseenter", () => running = false);
-    box.addEventListener("mouseleave", () => running = true);
-    box.addEventListener("focusin", () => running = false);
-    box.addEventListener("focusout", () => running = true);
-
-    // Manual toggle
-    toggleBtn.addEventListener("click", () => {
-      running = !running;
-      toggleBtn.textContent = running ? "Pause auto-scroll" : "Resume auto-scroll";
-      // reset timing so it doesn't jump
-      lastTs = null;
+    // Toggle button
+    fbToggle.addEventListener("click", () => {
+      fbRunning = !fbRunning;
+      fbToggle.textContent = fbRunning ? "Pause auto-scroll" : "Resume auto-scroll";
     });
 
-    setTimeout(() => requestAnimationFrame(step), startDelayMs);
+    // Kick off after delay
+    setTimeout(fbStart, fbStartDelayMs);
   </script>
 </body>
 </html>
