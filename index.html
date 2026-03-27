@@ -416,60 +416,6 @@
           `;
         });
     });
-
-    /******************** Facebook slow auto-scroll ********************
-     * Note: We can ONLY scroll the outer container. We cannot autoplay videos
-     * or control scrolling inside Facebook’s iframe.
-     *******************************************************************/
-    const fbBox = document.getElementById("fbScrollBox");
-    const fbToggle = document.getElementById("fbToggle");
-
-    let fbRunning = true;
-
-    // Slower/faster: pixels per second
-    const fbSpeedPxPerSec = 0.35;
-
-    // Start later because FB iframe loads slowly
-    const fbStartDelayMs = 8000;
-
-    // Use a steady timer (more reliable than rAF in some embed contexts)
-    const tickMs = 50;
-
-    let fbTimer = null;
-
-    function fbStart(){
-      if (fbTimer) return;
-      fbTimer = setInterval(() => {
-        if (!fbRunning) return;
-
-        // Only scroll when there’s actually something to scroll
-        if (fbBox.scrollHeight <= fbBox.clientHeight + 2) return;
-
-        fbBox.scrollTop += fbSpeedPxPerSec * (tickMs / 1000);
-
-        const atBottom = fbBox.scrollTop + fbBox.clientHeight >= fbBox.scrollHeight - 2;
-        if (atBottom) fbBox.scrollTop = 0;
-      }, tickMs);
-    }
-
-    function fbStop(){
-      if (!fbTimer) return;
-      clearInterval(fbTimer);
-      fbTimer = null;
-    }
-
-    // Pause on hover so you can read / click without fighting it
-    fbBox.addEventListener("mouseenter", () => fbRunning = false);
-    fbBox.addEventListener("mouseleave", () => fbRunning = true);
-
-    // Toggle button
-    fbToggle.addEventListener("click", () => {
-      fbRunning = !fbRunning;
-      fbToggle.textContent = fbRunning ? "Pause auto-scroll" : "Resume auto-scroll";
-    });
-
-    // Kick off after delay
-    setTimeout(fbStart, fbStartDelayMs);
   </script>
   <script>
   // Refresh the page every 10 minutes, but only when the tab is visible.
