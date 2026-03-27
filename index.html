@@ -14,7 +14,6 @@
       --gap: 16px;
       --tileHeight: 520px;
       --listHeight: 420px;
-      --fbMaxH: 680px;
     }
 
     body{
@@ -56,12 +55,6 @@
       border-radius:999px;
       border:1px solid #ddd;
     }
-    .breaking-updated{
-      font-size:12px;
-      opacity:0.75;
-      font-weight:600;
-      white-space:nowrap;
-    }
     .ticker{
       position:relative;
       overflow:hidden;
@@ -94,7 +87,7 @@
     .ticker a:hover{ text-decoration: underline; }
     .dot{ opacity:0.35; font-weight:600; }
 
-    /* ===== Grid (3x2 achieved by 2 columns with 6 tiles) ===== */
+    /* ===== Grid (3x2 via 2 columns, 6 tiles) ===== */
     .grid{
       display:grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -153,6 +146,7 @@
     .grid a{ color:inherit; text-decoration:none; }
     .grid a:hover{ text-decoration:underline; }
     .date{ opacity:0.7; font-size:12px; margin-top:4px; display:block; }
+
     .loading{ opacity:0.75; }
     .error{
       padding:10px;
@@ -160,59 +154,19 @@
       border-radius:12px;
       background:#fff;
     }
-
-    /* ===== Facebook section ===== */
-    .fb-wrap{
-      border:1px solid #e6e6e6;
-      border-radius:16px;
-      padding:14px;
-      background:#fff;
-    }
-    .fb-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-      margin-bottom:12px;
-    }
-    .fb-controls{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-    button{
-      font: inherit;
-      padding: 8px 12px;
-      border-radius: 12px;
-      border: 1px solid #ddd;
-      background: #fafafa;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    button:hover{ background:#f4f4f4; }
-    .hint{ font-size:12px; opacity:.75; font-weight:600; }
-
-    .fb-scroll{
-      max-height: var(--fbMaxH);
-      overflow-y:auto;
-      padding-right:10px;
-      border-radius: 12px;
-    }
   </style>
 </head>
 
 <body>
 
-  <!-- Breaking News ticker -->
+  <!-- Breaking News ticker (no "Updated") -->
   <section class="breaking-wrap" aria-label="Breaking news">
     <div class="breaking-head">
       <h2 class="breaking-title">
         <span class="badge">BREAKING</span>
         Headlines
       </h2>
-      <div class="breaking-updated" id="breaking-updated">Updated: …</div>
+      <div style="opacity:.75;font-weight:600;font-size:12px;">Latest</div>
     </div>
     <div class="ticker">
       <div class="ticker-track" id="breaking-track">
@@ -224,58 +178,17 @@
   <!-- 3x2 dashboard -->
   <div class="grid" id="dashboard"></div>
 
-  <!-- Facebook feed -->
-  <section class="fb-wrap" aria-label="HamiltonJet Global Facebook feed">
-    <div class="fb-head">
-      <div>
-        <h2 class="title" style="margin:0;">HamiltonJet Global • Facebook</h2>
-        <div class="subtitle" style="margin:4px 0 0 0;">Latest posts</div>
-      </div>
-
-      <div class="fb-controls">
-        <button id="fbToggle">Pause auto-scroll</button>
-        <span class="hint">Hover the feed to pause • scroll manually anytime</span>
-      </div>
-    </div>
-
-    <!-- Facebook SDK (once per page) -->
-    <div id="fb-root"></div>
-    <script async defer crossorigin="anonymous"
-      src="https://connect.facebook.net/en_GB/sdk.js#xfbml=1&version=v19.0">
-    </script>
-
-    <div class="fb-scroll" id="fbScrollBox">
-      <div class="fb-page"
-        data-href="https://www.facebook.com/HamiltonJetGlobal"
-        data-tabs="timeline"
-        data-width="500"
-        data-height="1200"
-        data-small-header="false"
-        data-adapt-container-width="true"
-        data-hide-cover="false"
-        data-show-facepile="false">
-        <blockquote cite="https://www.facebook.com/HamiltonJetGlobal" class="fb-xfbml-parse-ignore">
-          <a href="https://www.facebook.com/HamiltonJetGlobal">HamiltonJet Global</a>
-        </blockquote>
-      </div>
-    </div>
-  </section>
-
   <script>
     /******************** CONFIG ********************/
     const maxItems = 12;
 
-    // Timezone for all "Updated" stamps (null = viewer local)
-    const forceTimeZone = "Pacific/Auckland";
-
-    // Breaking ticker feed
     const breakingFeed = {
       url: "https://feeds.bbci.co.uk/news/rss.xml",
       maxHeadlines: 12,
       refreshMs: 5 * 60 * 1000
     };
 
-    // 3x2 feeds
+    // Your 6 feeds
     const feeds = [
       { name: "BBC • Top Stories",              url: "https://feeds.bbci.co.uk/news/rss.xml" },
       { name: "BBC • Science & Environment",    url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml" },
@@ -291,26 +204,6 @@
     function apiFor(feedUrl){
       return "https://api.rss2json.com/v1/api.json?rss_url=" +
         encodeURIComponent(feedUrl) + "&_=" + Date.now();
-    }
-
-    function parseDateSafe(x){
-      const d = new Date(x);
-      return isNaN(d.getTime()) ? null : d;
-    }
-
-    function computeUpdated(data){
-      const feedDates = [data?.feed?.lastBuildDate, data?.feed?.pubDate, data?.feed?.updated]
-        .map(parseDateSafe).filter(Boolean);
-      const itemDates = (data?.items || []).map(i => parseDateSafe(i.pubDate)).filter(Boolean);
-      const all = [...feedDates, ...itemDates];
-      if (!all.length) return new Date();
-      return new Date(Math.max(...all.map(d => d.getTime())));
-    }
-
-    function formatDT(d){
-      const opts = { year:"numeric", month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit" };
-      if (forceTimeZone) opts.timeZone = forceTimeZone;
-      return d.toLocaleString("en-GB", opts);
     }
 
     function getThumb(item){
@@ -330,18 +223,21 @@
       return item.link || "#";
     }
 
+    function formatDateOnly(pubDate){
+      if (!pubDate) return "";
+      const d = new Date(pubDate);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleDateString("en-GB");
+    }
+
     /******************** Breaking ticker ********************/
     const breakingTrack = document.getElementById("breaking-track");
-    const breakingUpdated = document.getElementById("breaking-updated");
 
     async function loadBreaking(){
       try{
         const res = await fetch(apiFor(breakingFeed.url), { cache: "no-store" });
         const data = await res.json();
         if (!data || !data.items) throw new Error(data?.message || "No items returned");
-
-        const updatedStr = formatDT(computeUpdated(data));
-        breakingUpdated.textContent = "Updated: " + updatedStr + (forceTimeZone ? " (" + forceTimeZone + ")" : "");
 
         const items = data.items.slice(0, breakingFeed.maxHeadlines);
         const line = items.map(it => {
@@ -353,10 +249,10 @@
         breakingTrack.innerHTML = `<span>${line}</span> <span class="dot">•</span> <span>${line}</span>`;
       } catch(err){
         console.error("Breaking ticker error:", err);
-        breakingUpdated.textContent = "Updated: unavailable";
-        breakingTrack.innerHTML = `<span class="loading">Couldn’t load breaking headlines.</span>`;
+        breakingTrack.innerHTML = `<span class="loading">Couldn’t load headlines.</span>`;
       }
     }
+
     loadBreaking();
     setInterval(loadBreaking, breakingFeed.refreshMs);
 
@@ -368,7 +264,7 @@
 
       tile.innerHTML = `
         <h2 class="title">${f.name}</h2>
-        <div class="subtitle">Latest • Updated: …</div>
+        <div class="subtitle">Latest</div>
         <div class="loading">Fetching feed…</div>
       `;
 
@@ -379,11 +275,10 @@
         .then(data => {
           if (!data || !data.items) throw new Error(data?.message || "No items returned");
 
-          const updatedStr = formatDT(computeUpdated(data));
           const itemsHtml = data.items.slice(0, maxItems).map(item => {
             const thumb = getThumb(item);
             const link = safeLink(item);
-            const date = item.pubDate ? formatDT(new Date(item.pubDate)).split(",")[0] : "";
+            const date = formatDateOnly(item.pubDate);
 
             return `
               <article class="item">
@@ -393,7 +288,7 @@
                   </a>` : ""}
                 <div class="text">
                   <a href="${link}" target="_blank" rel="noopener noreferrer"><strong>${item.title}</strong></a>
-                  <small class="date">${date}</small>
+                  ${date ? `<small class="date">${date}</small>` : ""}
                 </div>
               </article>
             `;
@@ -401,7 +296,7 @@
 
           tile.innerHTML = `
             <h2 class="title">${f.name}</h2>
-            <div class="subtitle">Latest • Updated: ${updatedStr}${forceTimeZone ? " (" + forceTimeZone + ")" : ""}</div>
+            <div class="subtitle">Latest</div>
             <div class="scroll">${itemsHtml || "<p>No items found.</p>"}</div>
           `;
         })
@@ -416,16 +311,12 @@
           `;
         });
     });
-  </script>
-  <script>
-  // Refresh the page every 10 minutes, but only when the tab is visible.
-  const REFRESH_MS = 10 * 60 * 1000;
 
-  setInterval(() => {
-    if (document.visibilityState === "visible") {
-      location.reload();
-    }
-  }, REFRESH_MS);
-</script>
+    /******************** Auto refresh every 10 mins (visible tab only) ********************/
+    const REFRESH_MS = 10 * 60 * 1000;
+    setInterval(() => {
+      if (document.visibilityState === "visible") location.reload();
+    }, REFRESH_MS);
+  </script>
 </body>
 </html>
