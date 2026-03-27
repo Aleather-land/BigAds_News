@@ -12,8 +12,8 @@
   <style>
     :root{
       --gap: 16px;
-      --tileHeight: 520px;      /* overall tile height */
-      --listHeight: 420px;      /* scrollable list height within tile */
+      --tileHeight: 520px;
+      --listHeight: 420px;
     }
 
     body{
@@ -23,7 +23,95 @@
       background:#fff;
     }
 
-    /* 3x2 grid on desktop, 1 column on mobile */
+    /* ===== Breaking ticker ===== */
+    .breaking-wrap{
+      border:1px solid #e6e6e6;
+      border-radius:16px;
+      padding:12px 14px;
+      margin-bottom: var(--gap);
+      background:#fff;
+    }
+
+    .breaking-head{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .breaking-title{
+      margin:0;
+      font-size:18px;
+      font-weight:600;
+      letter-spacing:0.3px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+
+    .badge{
+      display:inline-block;
+      font-size:12px;
+      font-weight:600;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid #ddd;
+    }
+
+    .breaking-updated{
+      font-size:12px;
+      opacity:0.75;
+      font-weight:600;
+      white-space:nowrap;
+    }
+
+    .ticker{
+      position:relative;
+      overflow:hidden;
+      border-radius:12px;
+      border:1px solid #eee;
+      background:#fafafa;
+      height: 44px;
+      display:flex;
+      align-items:center;
+    }
+
+    .ticker-track{
+      display:inline-flex;
+      gap: 28px;
+      white-space:nowrap;
+      will-change: transform;
+      animation: marquee 45s linear infinite;
+      padding-left: 100%;
+    }
+
+    .ticker:hover .ticker-track{
+      animation-play-state: paused; /* pause on hover */
+    }
+
+    @keyframes marquee{
+      from { transform: translateX(0); }
+      to   { transform: translateX(-100%); }
+    }
+
+    .ticker a{
+      text-decoration:none;
+      color: inherit;
+      font-weight:600;
+      opacity:0.95;
+    }
+
+    .ticker a:hover{
+      text-decoration: underline;
+    }
+
+    .dot{
+      opacity:0.35;
+      font-weight:600;
+    }
+
+    /* ===== Grid ===== */
     .grid{
       display:grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -33,6 +121,7 @@
     @media (max-width: 900px){
       .grid{ grid-template-columns: 1fr; }
       :root{ --tileHeight: 560px; --listHeight: 460px; }
+      .ticker-track{ animation-duration: 65s; }
     }
 
     .tile{
@@ -84,8 +173,8 @@
     }
 
     .text{ flex:1; }
-    a{ color:inherit; text-decoration:none; }
-    a:hover{ text-decoration:underline; }
+    .grid a{ color:inherit; text-decoration:none; }
+    .grid a:hover{ text-decoration:underline; }
     .date{ opacity:0.7; font-size:12px; margin-top:4px; display:block; }
 
     .loading{ opacity:0.75; }
@@ -99,39 +188,55 @@
 </head>
 
 <body>
+
+  <!-- Breaking News ticker -->
+  <section class="breaking-wrap" aria-label="Breaking news">
+    <div class="breaking-head">
+      <h2 class="breaking-title">
+        <span class="badge">BREAKING</span>
+        Headlines
+      </h2>
+      <div class="breaking-updated" id="breaking-updated">Updated: …</div>
+    </div>
+    <div class="ticker">
+      <div class="ticker-track" id="breaking-track">
+        <span class="loading">Loading headlines…</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3x2 dashboard -->
   <div class="grid" id="dashboard"></div>
 
   <script>
     /******************** CONFIG ********************/
     const maxItems = 12;
 
-    // Choose how you want times displayed:
-    // - null = viewer's local time zone
-    // - "Pacific/Auckland" = NZ time (recommended for RNZ)
+    // Timezone for all "Updated" stamps (null = viewer local)
     const forceTimeZone = "Pacific/Auckland";
 
+    // Breaking ticker feed (Top Stories works well for “what’s happening now”)
+    const breakingFeed = {
+      name: "BBC • Top Stories",
+      url: "https://feeds.bbci.co.uk/news/rss.xml",
+      maxHeadlines: 12,
+      refreshMs: 5 * 60 * 1000 // 5 minutes
+    };
+
+    // Your 3x2 grid feeds (exactly as you specified)
     const feeds = [
-      // Top Left
       { name: "RNZ • Morning Report (Podcast)", url: "https://www.rnz.co.nz/podcasts/morningreport.rss" },
-      // Top Right
-      { name: "RNZ • Midday Report (Podcast)", url: "https://www.rnz.co.nz/podcasts/middayreport.rss" },
-
-      // Mid Left
-      { name: "BBC • Top Stories", url: "https://feeds.bbci.co.uk/news/rss.xml" },
-      // Mid Right
-      { name: "BBC • Science & Environment", url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml" },
-
-      // Bottom Left
-      { name: "BBC • Technology", url: "https://feeds.bbci.co.uk/news/technology/rss.xml" },
-      // Bottom Right
-      { name: "BBC • Business", url: "https://feeds.bbci.co.uk/news/business/rss.xml" }
+      { name: "RNZ • Midday Report (Podcast)",  url: "https://www.rnz.co.nz/podcasts/middayreport.rss" },
+      { name: "BBC • Top Stories",              url: "https://feeds.bbci.co.uk/news/rss.xml" },
+      { name: "BBC • Science & Environment",    url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml" },
+      { name: "BBC • Technology",               url: "https://feeds.bbci.co.uk/news/technology/rss.xml" },
+      { name: "BBC • Business",                 url: "https://feeds.bbci.co.uk/news/business/rss.xml" }
     ];
 
     /******************** Helpers ********************/
     const dash = document.getElementById("dashboard");
 
     function apiFor(feedUrl){
-      // rss2json helps avoid CORS issues; cache-buster appended
       return "https://api.rss2json.com/v1/api.json?rss_url=" +
         encodeURIComponent(feedUrl) + "&_=" + Date.now();
     }
@@ -142,15 +247,11 @@
     }
 
     function computeUpdated(data){
-      // Prefer feed-level lastBuildDate if available, else newest item pubDate across all items
       const feedDates = [data?.feed?.lastBuildDate, data?.feed?.pubDate, data?.feed?.updated]
         .map(parseDateSafe).filter(Boolean);
-
       const itemDates = (data?.items || []).map(i => parseDateSafe(i.pubDate)).filter(Boolean);
-
       const all = [...feedDates, ...itemDates];
       if (!all.length) return new Date();
-
       return new Date(Math.max(...all.map(d => d.getTime())));
     }
 
@@ -161,26 +262,57 @@
     }
 
     function getThumb(item){
-      // rss2json often maps media:thumbnail / itunes:image into item.thumbnail
       if (item.thumbnail) return item.thumbnail;
 
-      // Sometimes an image sits in enclosure, but for RNZ podcasts enclosure is usually audio (ignore audio)
+      // RNZ podcast enclosure is usually audio, so only treat enclosure as an image if it says image/*
       if (item.enclosure && item.enclosure.link && (item.enclosure.type || "").startsWith("image/")) {
         return item.enclosure.link;
       }
 
-      // Sometimes description/content contains an <img>
       const html = (item.description || "") + " " + (item.content || "");
       const m = html.match(/<img[^>]+src="([^"]+)"/i);
       return m ? m[1] : "";
     }
 
-    function normaliseLink(item){
-      // RNZ/BBC usually provide a good link already; keep as-is.
+    function safeLink(item){
       return item.link || "#";
     }
 
-    /******************** Render tiles ********************/
+    /******************** Breaking ticker ********************/
+    const breakingTrack = document.getElementById("breaking-track");
+    const breakingUpdated = document.getElementById("breaking-updated");
+
+    async function loadBreaking(){
+      try{
+        const res = await fetch(apiFor(breakingFeed.url), { cache: "no-store" });
+        const data = await res.json();
+        if (!data || !data.items) throw new Error(data?.message || "No items returned");
+
+        const updatedStr = formatDT(computeUpdated(data));
+        breakingUpdated.textContent = "Updated: " + updatedStr + (forceTimeZone ? " (" + forceTimeZone + ")" : "");
+
+        const items = data.items.slice(0, breakingFeed.maxHeadlines);
+
+        // Build one long line: Headline • Headline • Headline ...
+        const line = items.map(it => {
+          const title = (it.title || "").trim();
+          const link = safeLink(it);
+          return `<a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a>`;
+        }).join(` <span class="dot">•</span> `);
+
+        // Duplicate the line so the marquee loops smoothly
+        breakingTrack.innerHTML = `<span>${line}</span> <span class="dot">•</span> <span>${line}</span>`;
+      } catch(err){
+        console.error("Breaking ticker error:", err);
+        breakingUpdated.textContent = "Updated: unavailable";
+        breakingTrack.innerHTML = `<span class="loading">Couldn’t load breaking headlines.</span>`;
+      }
+    }
+
+    loadBreaking();
+    setInterval(loadBreaking, breakingFeed.refreshMs);
+
+    /******************** Grid tiles ********************/
     feeds.forEach((f, idx) => {
       const tile = document.createElement("section");
       tile.className = "tile";
@@ -202,7 +334,7 @@
           const updatedStr = formatDT(computeUpdated(data));
           const itemsHtml = data.items.slice(0, maxItems).map(item => {
             const thumb = getThumb(item);
-            const link = normaliseLink(item);
+            const link = safeLink(item);
             const date = item.pubDate ? formatDT(new Date(item.pubDate)).split(",")[0] : "";
 
             return `
