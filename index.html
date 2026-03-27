@@ -3,134 +3,239 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>BBC Widget</title>
+  <title>BigAds News Dashboard</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
 
   <style>
-    :root { --w: 760px; --maxh: 520px; }
+    :root{
+      --gap: 16px;
+      --tileHeight: 520px;      /* overall tile height */
+      --listHeight: 420px;      /* scrollable list height within tile */
+    }
 
-    body { margin: 0; padding: 16px; font-family: "Fredoka", system-ui, sans-serif; }
-    #rss-widget { max-width: var(--w); }
+    body{
+      margin:0;
+      padding:16px;
+      font-family:"Fredoka", system-ui, sans-serif;
+      background:#fff;
+    }
 
-    .rss-title { font-size: 28px; margin: 0 0 10px 0; letter-spacing: 1px; font-weight: 600; }
-    .rss-subtitle { margin: 0 0 12px 0; opacity: 0.85; font-weight: 600; }
+    /* 3x2 grid on desktop, 1 column on mobile */
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--gap);
+    }
 
-    /* Scrollbar lives here */
-    .rss-scroll { max-height: var(--maxh); overflow-y: auto; padding-right: 10px; }
+    @media (max-width: 900px){
+      .grid{ grid-template-columns: 1fr; }
+      :root{ --tileHeight: 560px; --listHeight: 460px; }
+    }
 
-    .rss-item { display: flex; gap: 12px; margin: 0 0 14px 0; align-items: flex-start; }
-    .rss-thumb { width: 120px; height: 68px; object-fit: cover; border-radius: 12px; flex: 0 0 auto; background: #f2f2f2; }
+    .tile{
+      border:1px solid #e6e6e6;
+      border-radius:16px;
+      padding:14px;
+      background:#fff;
+      height: var(--tileHeight);
+      box-sizing:border-box;
+      display:flex;
+      flex-direction:column;
+    }
 
-    .rss-text { flex: 1; }
-    a { color: inherit; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    .title{
+      font-size:22px;
+      margin:0 0 6px 0;
+      font-weight:600;
+      letter-spacing:0.4px;
+    }
 
-    .rss-date { opacity: 0.7; font-size: 12px; margin-top: 4px; display: block; }
-    .rss-error { padding: 12px; border: 1px solid #ddd; border-radius: 12px; background: #fff; }
-    .rss-loading { opacity: 0.75; }
+    .subtitle{
+      margin:0 0 10px 0;
+      opacity:0.85;
+      font-weight:600;
+      font-size:14px;
+      line-height:1.3;
+    }
+
+    .scroll{
+      overflow-y:auto;
+      padding-right:10px;
+      max-height: var(--listHeight);
+    }
+
+    .item{
+      display:flex;
+      gap:12px;
+      margin:0 0 12px 0;
+      align-items:flex-start;
+    }
+
+    .thumb{
+      width:110px;
+      height:62px;
+      object-fit:cover;
+      border-radius:12px;
+      flex:0 0 auto;
+      background:#f2f2f2;
+    }
+
+    .text{ flex:1; }
+    a{ color:inherit; text-decoration:none; }
+    a:hover{ text-decoration:underline; }
+    .date{ opacity:0.7; font-size:12px; margin-top:4px; display:block; }
+
+    .loading{ opacity:0.75; }
+    .error{
+      padding:10px;
+      border:1px solid #ddd;
+      border-radius:12px;
+      background:#fff;
+    }
   </style>
 </head>
 
 <body>
-  <div id="rss-widget"></div>
+  <div class="grid" id="dashboard"></div>
 
   <script>
     /******************** CONFIG ********************/
-    const widgetTitle = "BBC News";
-    const widgetSubtitle = "Latest";
     const maxItems = 12;
 
-    // Main feed (often NO thumbnails in RSS):
-    // const feedUrl = "https://feeds.bbci.co.uk/news/rss.xml";
+    // Choose how you want times displayed:
+    // - null = viewer's local time zone
+    // - "Pacific/Auckland" = NZ time (recommended for RNZ)
+    const forceTimeZone = "Pacific/Auckland";
 
-    // Feeds that DO usually include thumbnails:
-    // const feedUrl = "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml";
-    const feedUrl = "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml";
+    const feeds = [
+      // Top Left
+      { name: "RNZ • Morning Report (Podcast)", url: "https://www.rnz.co.nz/podcasts/morningreport.rss" },
+      // Top Right
+      { name: "RNZ • Midday Report (Podcast)", url: "https://www.rnz.co.nz/podcasts/middayreport.rss" },
 
-    /******************** RENDER ********************/
-    const container = document.getElementById("rss-widget");
-    container.innerHTML = `
-      <h3 class="rss-title">${widgetTitle}</h3>
-      <div class="rss-subtitle">${widgetSubtitle}</div>
-      <div class="rss-loading">Loading…</div>
-    `;
+      // Mid Left
+      { name: "BBC • Top Stories", url: "https://feeds.bbci.co.uk/news/rss.xml" },
+      // Mid Right
+      { name: "BBC • Science & Environment", url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml" },
 
-    const api =
-      "https://api.rss2json.com/v1/api.json?rss_url=" +
-      encodeURIComponent(feedUrl) +
-      "&_=" + Date.now();
+      // Bottom Left
+      { name: "BBC • Technology", url: "https://feeds.bbci.co.uk/news/technology/rss.xml" },
+      // Bottom Right
+      { name: "BBC • Business", url: "https://feeds.bbci.co.uk/news/business/rss.xml" }
+    ];
 
-    function getThumb(item) {
+    /******************** Helpers ********************/
+    const dash = document.getElementById("dashboard");
+
+    function apiFor(feedUrl){
+      // rss2json helps avoid CORS issues; cache-buster appended
+      return "https://api.rss2json.com/v1/api.json?rss_url=" +
+        encodeURIComponent(feedUrl) + "&_=" + Date.now();
+    }
+
+    function parseDateSafe(x){
+      const d = new Date(x);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    function computeUpdated(data){
+      // Prefer feed-level lastBuildDate if available, else newest item pubDate across all items
+      const feedDates = [data?.feed?.lastBuildDate, data?.feed?.pubDate, data?.feed?.updated]
+        .map(parseDateSafe).filter(Boolean);
+
+      const itemDates = (data?.items || []).map(i => parseDateSafe(i.pubDate)).filter(Boolean);
+
+      const all = [...feedDates, ...itemDates];
+      if (!all.length) return new Date();
+
+      return new Date(Math.max(...all.map(d => d.getTime())));
+    }
+
+    function formatDT(d){
+      const opts = { year:"numeric", month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit" };
+      if (forceTimeZone) opts.timeZone = forceTimeZone;
+      return d.toLocaleString("en-GB", opts);
+    }
+
+    function getThumb(item){
+      // rss2json often maps media:thumbnail / itunes:image into item.thumbnail
       if (item.thumbnail) return item.thumbnail;
-      if (item.enclosure && item.enclosure.link) return item.enclosure.link;
 
+      // Sometimes an image sits in enclosure, but for RNZ podcasts enclosure is usually audio (ignore audio)
+      if (item.enclosure && item.enclosure.link && (item.enclosure.type || "").startsWith("image/")) {
+        return item.enclosure.link;
+      }
+
+      // Sometimes description/content contains an <img>
       const html = (item.description || "") + " " + (item.content || "");
       const m = html.match(/<img[^>]+src="([^"]+)"/i);
       return m ? m[1] : "";
     }
 
-    // Always show an Updated time (rss2json sometimes omits feed.lastBuildDate)
-    function computeUpdated(data) {
-      const fromFeed = data?.feed?.lastBuildDate || data?.feed?.pubDate || data?.feed?.updated;
-      if (fromFeed) {
-        const d = new Date(fromFeed);
-        if (!isNaN(d.getTime())) return d;
-      }
-      const fromItem = data?.items?.[0]?.pubDate;
-      if (fromItem) {
-        const d = new Date(fromItem);
-        if (!isNaN(d.getTime())) return d;
-      }
-      return new Date();
+    function normaliseLink(item){
+      // RNZ/BBC usually provide a good link already; keep as-is.
+      return item.link || "#";
     }
 
-    fetch(api, { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => {
-        if (!data || !data.items) throw new Error(data?.message || "No items returned");
+    /******************** Render tiles ********************/
+    feeds.forEach((f, idx) => {
+      const tile = document.createElement("section");
+      tile.className = "tile";
+      tile.id = "tile-" + idx;
 
-        const updatedStr = computeUpdated(data).toLocaleString();
+      tile.innerHTML = `
+        <h2 class="title">${f.name}</h2>
+        <div class="subtitle">Latest • Updated: …</div>
+        <div class="loading">Fetching feed…</div>
+      `;
 
-        const cards = data.items.slice(0, maxItems).map(item => {
-          const thumb = getThumb(item);
-          const date = item.pubDate ? new Date(item.pubDate).toLocaleDateString() : "";
+      dash.appendChild(tile);
 
-          return `
-            <article class="rss-item">
-              ${thumb ? `
-                <a href="${item.link}" target="_blank" rel="noopener noreferrer">
-                  <img class="rss-thumb" src="${thumb}" alt="">
-                </a>
-              ` : ""}
-              <div class="rss-text">
-                <a href="${item.link}" target="_blank" rel="noopener noreferrer">
-                  <strong>${item.title}</strong>
-                </a>
-                <small class="rss-date">${date}</small>
-              </div>
-            </article>
+      fetch(apiFor(f.url), { cache: "no-store" })
+        .then(r => r.json())
+        .then(data => {
+          if (!data || !data.items) throw new Error(data?.message || "No items returned");
+
+          const updatedStr = formatDT(computeUpdated(data));
+          const itemsHtml = data.items.slice(0, maxItems).map(item => {
+            const thumb = getThumb(item);
+            const link = normaliseLink(item);
+            const date = item.pubDate ? formatDT(new Date(item.pubDate)).split(",")[0] : "";
+
+            return `
+              <article class="item">
+                ${thumb ? `
+                  <a href="${link}" target="_blank" rel="noopener noreferrer">
+                    <img class="thumb" src="${thumb}" alt="">
+                  </a>` : ""}
+                <div class="text">
+                  <a href="${link}" target="_blank" rel="noopener noreferrer"><strong>${item.title}</strong></a>
+                  <small class="date">${date}</small>
+                </div>
+              </article>
+            `;
+          }).join("");
+
+          tile.innerHTML = `
+            <h2 class="title">${f.name}</h2>
+            <div class="subtitle">Latest • Updated: ${updatedStr}${forceTimeZone ? " (" + forceTimeZone + ")" : ""}</div>
+            <div class="scroll">${itemsHtml || "<p>No items found.</p>"}</div>
           `;
-        }).join("");
-
-        container.innerHTML = `
-          <h3 class="rss-title">${widgetTitle}</h3>
-          <div class="rss-subtitle">${widgetSubtitle} • Updated: ${updatedStr}</div>
-          <div class="rss-scroll">${cards || "<p>No items found.</p>"}</div>
-        `;
-      })
-      .catch(err => {
-        console.error(err);
-        container.innerHTML = `
-          <h3 class="rss-title">${widgetTitle}</h3>
-          <div class="rss-error">
-            <strong>Feed unavailable right now.</strong><br>
-            <small>${String(err)}</small>
-          </div>
-        `;
-      });
+        })
+        .catch(err => {
+          console.error("Feed error:", f.name, err);
+          tile.innerHTML = `
+            <h2 class="title">${f.name}</h2>
+            <div class="error">
+              <strong>Feed unavailable right now.</strong><br>
+              <small>${String(err)}</small>
+            </div>
+          `;
+        });
+    });
   </script>
 </body>
 </html>
