@@ -10,7 +10,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
 
   <style>
-    /* Tell the browser we support both themes (helps scrollbars/form controls) */
     :root { color-scheme: light dark; }
 
     /* Theme variables (default = light) */
@@ -57,8 +56,8 @@
       color: var(--text);
     }
 
-    /* ===== Breaking ticker ===== */
-    .breaking-wrap{
+    /* ===== Ticker sections ===== */
+    .wrap{
       border:1px solid var(--border);
       border-radius:16px;
       padding:12px 14px;
@@ -66,7 +65,7 @@
       background: var(--panel);
     }
 
-    .breaking-head{
+    .head{
       display:flex;
       align-items:baseline;
       justify-content:space-between;
@@ -74,7 +73,7 @@
       margin-bottom: 8px;
     }
 
-    .breaking-title{
+    .head-title{
       margin:0;
       font-size:18px;
       font-weight:600;
@@ -93,6 +92,13 @@
       border:1px solid var(--border);
       background: transparent;
       color: var(--text);
+    }
+
+    .meta{
+      opacity:.75;
+      font-weight:600;
+      font-size:12px;
+      color:var(--muted);
     }
 
     .ticker{
@@ -131,6 +137,7 @@
     .ticker a:hover{ text-decoration: underline; }
 
     .dot{ opacity:0.35; font-weight:600; color: var(--text); }
+    .loading{ color: var(--muted); }
 
     /* ===== Grid ===== */
     .grid{
@@ -209,8 +216,6 @@
       display:block;
     }
 
-    .loading{ color: var(--muted); }
-
     .error{
       padding:10px;
       border:1px solid var(--border);
@@ -223,18 +228,28 @@
 
 <body>
 
-  <!-- Breaking News ticker -->
-  <section class="breaking-wrap" aria-label="Breaking news">
-    <div class="breaking-head">
-      <h2 class="breaking-title">
-        <span class="badge">BREAKING</span>
-        Headlines
-      </h2>
-      <div style="opacity:.75;font-weight:600;font-size:12px;color:var(--muted);">Latest</div>
+  <!-- BBC Breaking ticker -->
+  <section class="wrap" aria-label="BBC breaking headlines">
+    <div class="head">
+      <h2 class="head-title"><span class="badge">BBC</span>Breaking headlines</h2>
+      <div class="meta">Latest</div>
     </div>
     <div class="ticker">
-      <div class="ticker-track" id="breaking-track">
-        <span class="loading">Loading headlines…</span>
+      <div class="ticker-track" id="bbc-track">
+        <span class="loading">Loading BBC headlines…</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RNZ NZ News ticker -->
+  <section class="wrap" aria-label="NZ news headlines">
+    <div class="head">
+      <h2 class="head-title"><span class="badge">NZ</span>RNZ NZ News</h2>
+      <div class="meta">Latest</div>
+    </div>
+    <div class="ticker">
+      <div class="ticker-track" id="rnz-track">
+        <span class="loading">Loading NZ headlines…</span>
       </div>
     </div>
   </section>
@@ -244,22 +259,30 @@
 
   <script>
     /******************** CONFIG ********************/
-    const maxItems = 12;
+    const maxItems = 7;
 
-    const breakingFeed = {
-      url: "https://feeds.bbci.co.uk/news/rss.xml",
-      maxHeadlines: 12,
-      refreshMs: 5 * 60 * 1000
-    };
+    // Tickers refresh every 5 minutes
+    const TICKER_REFRESH_MS = 5 * 60 * 1000;
 
-    // Your 6 feeds (3 rows x 2 cols)
+    // 10-minute full page refresh (visible tab only)
+    const PAGE_REFRESH_MS = 10 * 60 * 1000;
+
+    // Feeds
+    const BBC_TOP = "https://feeds.bbci.co.uk/news/rss.xml";
+
+    // RNZ news page is rnz.co.nz/news; the matching RSS feed is RNZ "National" news:
+    // https://www.rnz.co.nz/rss/national.xml
+    const RNZ_NZ_NEWS = "https://www.rnz.co.nz/rss/national.xml";
+
+    // Your 3x2 grid feeds
     const feeds = [
       { name: "BBC • Top Stories",              url: "https://feeds.bbci.co.uk/news/rss.xml" },
       { name: "BBC • Science & Environment",    url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml" },
       { name: "BBC • Technology",               url: "https://feeds.bbci.co.uk/news/technology/rss.xml" },
       { name: "BBC • Business",                 url: "https://feeds.bbci.co.uk/news/business/rss.xml" },
       { name: "RNZ • Morning Report (Podcast)", url: "https://www.rnz.co.nz/podcasts/morningreport.rss" },
-      { name: "RNZ • Midday Report (Podcast)",  url: "https://www.rnz.co.nz/podcasts/middayreport.rss" }
+      { name: "RNZ • Midday Report (Podcast)",  url: "https://www.rnz.co.nz/podcasts/middayreport.rss" },
+      { name: "RNZ • News",                     url: "https://www.rnz.co.nz/rss/national.xml" }
     ];
 
     /******************** Helpers ********************/
@@ -268,6 +291,10 @@
     function apiFor(feedUrl){
       return "https://api.rss2json.com/v1/api.json?rss_url=" +
         encodeURIComponent(feedUrl) + "&_=" + Date.now();
+    }
+
+    function safeLink(item){
+      return item.link || "#";
     }
 
     function getThumb(item){
@@ -283,10 +310,6 @@
       return m ? m[1] : "";
     }
 
-    function safeLink(item){
-      return item.link || "#";
-    }
-
     function formatDateOnly(pubDate){
       if (!pubDate) return "";
       const d = new Date(pubDate);
@@ -294,31 +317,39 @@
       return d.toLocaleDateString("en-GB");
     }
 
-    /******************** Breaking ticker ********************/
-    const breakingTrack = document.getElementById("breaking-track");
+    function buildTickerLine(items){
+      const line = items.map(it => {
+        const title = (it.title || "").trim();
+        const link = safeLink(it);
+        return `<a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a>`;
+      }).join(` <span class="dot">•</span> `);
 
-    async function loadBreaking(){
+      // Duplicate for smooth loop
+      return `<span>${line}</span> <span class="dot">•</span> <span>${line}</span>`;
+    }
+
+    async function loadTicker(feedUrl, trackEl, label){
       try{
-        const res = await fetch(apiFor(breakingFeed.url), { cache: "no-store" });
+        const res = await fetch(apiFor(feedUrl), { cache: "no-store" });
         const data = await res.json();
         if (!data || !data.items) throw new Error(data?.message || "No items returned");
-
-        const items = data.items.slice(0, breakingFeed.maxHeadlines);
-        const line = items.map(it => {
-          const title = (it.title || "").trim();
-          const link = safeLink(it);
-          return `<a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a>`;
-        }).join(` <span class="dot">•</span> `);
-
-        breakingTrack.innerHTML = `<span>${line}</span> <span class="dot">•</span> <span>${line}</span>`;
+        const items = data.items.slice(0, 12);
+        trackEl.innerHTML = buildTickerLine(items);
       } catch(err){
-        console.error("Breaking ticker error:", err);
-        breakingTrack.innerHTML = `<span class="loading">Couldn’t load headlines.</span>`;
+        console.error(label + " ticker error:", err);
+        trackEl.innerHTML = `<span class="loading">Couldn’t load ${label} headlines.</span>`;
       }
     }
 
-    loadBreaking();
-    setInterval(loadBreaking, breakingFeed.refreshMs);
+    /******************** Load tickers ********************/
+    const bbcTrack = document.getElementById("bbc-track");
+    const rnzTrack = document.getElementById("rnz-track");
+
+    loadTicker(BBC_TOP, bbcTrack, "BBC");
+    loadTicker(RNZ_NZ_NEWS, rnzTrack, "NZ");
+
+    setInterval(() => loadTicker(BBC_TOP, bbcTrack, "BBC"), TICKER_REFRESH_MS);
+    setInterval(() => loadTicker(RNZ_NZ_NEWS, rnzTrack, "NZ"), TICKER_REFRESH_MS);
 
     /******************** Grid tiles ********************/
     feeds.forEach((f, idx) => {
@@ -376,11 +407,10 @@
         });
     });
 
-    /******************** Auto refresh every 10 mins (visible tab only) ********************/
-    const REFRESH_MS = 10 * 60 * 1000;
+    /******************** Auto refresh whole page every 10 mins (visible tab only) ********************/
     setInterval(() => {
       if (document.visibilityState === "visible") location.reload();
-    }, REFRESH_MS);
+    }, PAGE_REFRESH_MS);
   </script>
 </body>
 </html>
