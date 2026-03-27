@@ -371,3 +371,144 @@
   </script>
 </body>
 </html>
+
+<!doctype html>
+<html lang="en-gb">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HamiltonJet • Facebook Feed</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root { --w: 760px; --h: 680px; }
+
+    body { margin:0; padding:16px; font-family:"Fredoka", system-ui, sans-serif; background:#fff; }
+
+    .card{
+      max-width: var(--w);
+      border: 1px solid #e6e6e6;
+      border-radius: 16px;
+      padding: 14px;
+      background:#fff;
+    }
+
+    .title{ font-size:22px; margin:0 0 6px 0; font-weight:600; letter-spacing:.4px; }
+    .subtitle{ margin:0 0 12px 0; opacity:.85; font-weight:600; font-size:14px; }
+
+    .controls{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin: 0 0 12px 0;
+      flex-wrap: wrap;
+    }
+
+    button{
+      font: inherit;
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      background: #fafafa;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover{ background:#f4f4f4; }
+
+    .hint{ font-size:12px; opacity:.75; font-weight:600; }
+
+    /* Scroll container (this is what we auto-scroll) */
+    .scroll{
+      max-height: var(--h);
+      overflow-y: auto;
+      padding-right: 10px;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h2 class="title">HamiltonJet Global • Facebook</h2>
+    <div class="subtitle">Latest posts</div>
+
+    <div class="controls">
+      <button id="toggle">Pause auto-scroll</button>
+      <span class="hint">Tip: hover the feed to pause • scroll manually anytime</span>
+    </div>
+
+    <!-- Facebook SDK (include once per page) -->
+    <div id="fb-root"></div>
+    <script async defer crossorigin="anonymous"
+      src="https://connect.facebook.net/en_GB/sdk.js#xfbml=1&version=v19.0">
+    </script>
+
+    <div class="scroll" id="autoScrollBox">
+      <!-- Facebook Page Plugin -->
+      <div class="fb-page"
+        data-href="https://www.facebook.com/HamiltonJetGlobal"
+        data-tabs="timeline"
+        data-width="500"
+        data-height="1200"
+        data-small-header="false"
+        data-adapt-container-width="true"
+        data-hide-cover="false"
+        data-show-facepile="false">
+        <blockquote cite="https://www.facebook.com/HamiltonJetGlobal" class="fb-xfbml-parse-ignore">
+          <a href="https://www.facebook.com/HamiltonJetGlobal">HamiltonJet Global</a>
+        </blockquote>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Slow auto-scroll settings =====
+    const box = document.getElementById("autoScrollBox");
+    const toggleBtn = document.getElementById("toggle");
+
+    // pixels per second (0.2–0.6 is "slow"; 0.35 is a nice default)
+    const speedPxPerSec = 0.35;
+
+    // wait a moment before starting (lets the embed render)
+    const startDelayMs = 2000;
+
+    let running = true;
+    let lastTs = null;
+
+    function step(ts){
+      if (lastTs === null) lastTs = ts;
+      const dt = (ts - lastTs) / 1000;
+      lastTs = ts;
+
+      if (running) {
+        box.scrollTop += speedPxPerSec * dt;
+
+        // Loop back to top when we reach the bottom
+        const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
+        if (atBottom) box.scrollTop = 0;
+      }
+
+      requestAnimationFrame(step);
+    }
+
+    // Pause on hover/focus so it doesn’t fight the user
+    box.addEventListener("mouseenter", () => running = false);
+    box.addEventListener("mouseleave", () => running = true);
+    box.addEventListener("focusin", () => running = false);
+    box.addEventListener("focusout", () => running = true);
+
+    // Manual toggle
+    toggleBtn.addEventListener("click", () => {
+      running = !running;
+      toggleBtn.textContent = running ? "Pause auto-scroll" : "Resume auto-scroll";
+      // reset timing so it doesn't jump
+      lastTs = null;
+    });
+
+    setTimeout(() => requestAnimationFrame(step), startDelayMs);
+  </script>
+</body>
+</html>
