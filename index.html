@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en-gb">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BBC Widget</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root { --w: 760px; --maxh: 520px; }
+
+    body { margin: 0; padding: 16px; font-family: "Fredoka", system-ui, sans-serif; }
+    #rss-widget { max-width: var(--w); }
+
+    .rss-title { font-size: 28px; margin: 0 0 10px 0; letter-spacing: 1px; font-weight: 600; }
+    .rss-subtitle { margin: 0 0 12px 0; opacity: 0.85; font-weight: 600; }
+
+    /* Scrollbar lives here */
+    .rss-scroll { max-height: var(--maxh); overflow-y: auto; padding-right: 10px; }
+
+    .rss-item { display: flex; gap: 12px; margin: 0 0 14px 0; align-items: flex-start; }
+    .rss-thumb { width: 120px; height: 68px; object-fit: cover; border-radius: 12px; flex: 0 0 auto; background: #f2f2f2; }
+
+    .rss-text { flex: 1; }
+    a { color: inherit; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .rss-date { opacity: 0.7; font-size: 12px; margin-top: 4px; display: block; }
+    .rss-error { padding: 12px; border: 1px solid #ddd; border-radius: 12px; background: #fff; }
+    .rss-loading { opacity: 0.75; }
+  </style>
+</head>
+
+<body>
+  <div id="rss-widget"></div>
+
+  <script>
+    /******************** CONFIG ********************/
+    const widgetTitle = "BBC News";
+    const widgetSubtitle = "Latest";
+    const maxItems = 12;
+
+    // Main feed (often NO thumbnails in RSS):
+    // const feedUrl = "https://feeds.bbci.co.uk/news/rss.xml";
+
+    // Feeds that DO usually include thumbnails:
+    // const feedUrl = "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml";
+    const feedUrl = "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml";
+
+    /******************** RENDER ********************/
+    const container = document.getElementById("rss-widget");
+    container.innerHTML = `
+      <h3 class="rss-title">${widgetTitle}</h3>
+      <div class="rss-subtitle">${widgetSubtitle}</div>
+      <div class="rss-loading">Loading…</div>
+    `;
+
+    const api =
+      "https://api.rss2json.com/v1/api.json?rss_url=" +
+      encodeURIComponent(feedUrl) +
+      "&_=" + Date.now();
+
+    function getThumb(item) {
+      if (item.thumbnail) return item.thumbnail;
+      if (item.enclosure && item.enclosure.link) return item.enclosure.link;
+
+      const html = (item.description || "") + " " + (item.content || "");
+      const m = html.match(/<img[^>]+src="([^"]+)"/i);
+      return m ? m[1] : "";
+    }
+
+    // Always show an Updated time (rss2json sometimes omits feed.lastBuildDate)
+    function computeUpdated(data) {
+      const fromFeed = data?.feed?.lastBuildDate || data?.feed?.pubDate || data?.feed?.updated;
+      if (fromFeed) {
+        const d = new Date(fromFeed);
+        if (!isNaN(d.getTime())) return d;
+      }
+      const fromItem = data?.items?.[0]?.pubDate;
+      if (fromItem) {
+        const d = new Date(fromItem);
+        if (!isNaN(d.getTime())) return d;
+      }
+      return new Date();
+    }
+
+    fetch(api, { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => {
+        if (!data || !data.items) throw new Error(data?.message || "No items returned");
+
+        const updatedStr = computeUpdated(data).toLocaleString();
+
+        const cards = data.items.slice(0, maxItems).map(item => {
+          const thumb = getThumb(item);
+          const date = item.pubDate ? new Date(item.pubDate).toLocaleDateString() : "";
+
+          return `
+            <article class="rss-item">
+              ${thumb ? `
+                <a href="${item.link}" target="_blank" rel="noopener noreferrer">
+                  <img class="rss-thumb" src="${thumb}" alt="">
+                </a>
+              ` : ""}
+              <div class="rss-text">
+                <a href="${item.link}" target="_blank" rel="noopener noreferrer">
+                  <strong>${item.title}</strong>
+                </a>
+                <small class="rss-date">${date}</small>
+              </div>
+            </article>
+          `;
+        }).join("");
+
+        container.innerHTML = `
+          <h3 class="rss-title">${widgetTitle}</h3>
+          <div class="rss-subtitle">${widgetSubtitle} • Updated: ${updatedStr}</div>
+          <div class="rss-scroll">${cards || "<p>No items found.</p>"}</div>
+        `;
+      })
+      .catch(err => {
+        console.error(err);
+        container.innerHTML = `
+          <h3 class="rss-title">${widgetTitle}</h3>
+          <div class="rss-error">
+            <strong>Feed unavailable right now.</strong><br>
+            <small>${String(err)}</small>
+          </div>
+        `;
+      });
+  </script>
+</body>
+</html>
